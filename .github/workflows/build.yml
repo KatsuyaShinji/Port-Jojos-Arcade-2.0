@@ -1,0 +1,33 @@
+name: Build APK
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extrair projeto
+        run: unzip -q JojoAllStarChallenge.zip
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: 8.7 }
+      - name: Instalar NDK e CMake
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;26.1.10909125" "cmake;3.22.1"
+      - name: Baixar o core FBNeo
+        working-directory: JojoAllStarChallenge
+        run: |
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          curl -L --retry 5 -o core.zip https://buildbot.libretro.com/nightly/android/latest/arm64-v8a/fbneo_libretro_android.so.zip
+          unzip -o core.zip -d core_tmp
+          cp core_tmp/fbneo_libretro_android.so app/src/main/jniLibs/arm64-v8a/libfbneo_libretro.so
+      - name: Compilar
+        working-directory: JojoAllStarChallenge
+        run: gradle assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JojoAllStarChallenge-apk
+          path: JojoAllStarChallenge/app/build/outputs/apk/debug/app-debug.apk
